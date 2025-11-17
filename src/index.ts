@@ -1,113 +1,54 @@
-console.log('🚀 Budget Tracker CLI');
-import { ITransaction, IAccount, IAccountManager, ISummary } from './types';
+import { Transaction } from './classes';
+import { Account } from './classes';
+import { AccountManager } from './classes';
 
-const account: IAccount & { transactions: ITransaction[] } = {
-  id: 1,
-  name: 'Личный бюджет',
-  transactions: [],
 
-  addTransaction(transaction: ITransaction): void {
-    this.transactions.push(transaction);
-  },
+// Создаём счёт
+const acc1 = new Account(1, 'Кошелёк');
+const acc2 = new Account(2, 'Банковская карта');
 
-  removeTransactionById(transactionId: number): boolean {
-    const index = this.transactions.findIndex((t) => t.id === transactionId);
-    if (index !== -1) {
-      this.transactions.splice(index, 1);
-      return true;
-    }
-    return false;
-  },
+// Создаём транзакции
+const t1 = new Transaction(1, 1500, 'income', new Date('2025-11-01').toISOString(), 'Зарплата');
+const t2 = new Transaction(2, 200, 'expense', new Date('2025-11-03').toISOString(), 'Продукты');
+const t3 = new Transaction(3, 50, 'expense', new Date('2025-11-05').toISOString(), 'Кофе');
 
-  getTransactions(): ITransaction[] {
-    return this.transactions;
-  },
-};
+acc1.addTransaction(t1);
+acc1.addTransaction(t2);
 
-const accountManager: IAccountManager & { accounts: IAccount[] } = {
-  accounts: [],
+acc2.addTransaction(t3);
 
-  addAccount(account: IAccount): void {
-    this.accounts.push(account);
-  },
+// Создаём менеджер и добавляем счета
+const manager = new AccountManager();
+manager.addAccount(acc1);
+manager.addAccount(acc2);
 
-  removeAccountById(accountId: number): boolean {
-    const index = this.accounts.findIndex((acc) => acc.id === accountId);
-    if (index !== -1) {
-      this.accounts.splice(index, 1);
-      return true;
-    }
-    return false;
-  },
+// Выводим всё
+console.log(manager.toString());
 
-  getAccounts(): IAccount[] {
-    return this.accounts;
-  },
+// Подробно по счету 1
+console.log('\n--- Подробно по счету 1 ---');
+console.log(acc1.toString());
 
-  getAccountById(id: number): IAccount | undefined {
-    return this.accounts.find((acc) => acc.id === id);
-  },
+// Пример удаления транзакции и счета
+console.log('\nУдаляем транзакцию id:2 из счета 1');
+acc1.removeTransactionById(2);
+console.log(acc1.toString());
 
-  getSummary(accountId: number): ISummary {
-    const account = this.getAccountById(accountId);
-    if (!account) {
-      throw new Error('Account not found');
-    }
+console.log('\nУдаляем счёт id:2');
+console.log('Удалено:', manager.removeAccountById(2));
+console.log(manager.toString());
 
-    const transactions = account.getTransactions();
 
-    const income = transactions
-      .filter((t) => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
 
-    const expense = transactions
-      .filter((t) => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+//dz 6
+import { GenericStorage, Product } from './generics';
 
-    return {
-      income,
-      expense,
-      balance: income - expense,
-    };
-  },
-};
+const productStorage = new GenericStorage<Product>();
 
-account.addTransaction({
-  id: 1,
-  amount: 1000,
-  type: 'income',
-  date: '2023-01-01T00:00:00Z',
-  description: 'Зарплата за январь',
-});
+productStorage.add(new Product(1, 'Ноутбук', 150000));
+productStorage.add(new Product(2, 'Смартфон', 80000));
+productStorage.add(new Product(3, 'Планшет', 50000));
+productStorage.add({ id: 4 } as Product);
 
-account.addTransaction({
-  id: 2,
-  amount: 200,
-  type: 'expense',
-  date: '2023-01-05T00:00:00Z',
-  description: 'Покупка продуктов',
-});
-
-account.addTransaction({
-  id: 3,
-  amount: 150,
-  type: 'expense',
-  date: '2023-01-10T00:00:00Z',
-  description: 'Оплата коммунальных услуг',
-});
-
-accountManager.addAccount(account);
-
-console.log(
-  'Список всех бюджетов:',
-  JSON.stringify(accountManager.getAccounts(), null, 2)
-);
-
-console.log('Сводная информация о бюджете:', accountManager.getSummary(1));
-
-accountManager.removeAccountById(account.id);
-
-console.log(
-  'Список всех бюджетов после удаления:',
-  accountManager.getAccounts()
-);
+console.log('--- Описание всех продуктов ---');
+productStorage.describeAll();
