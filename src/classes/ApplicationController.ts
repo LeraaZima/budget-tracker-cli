@@ -10,11 +10,10 @@ export class ApplicationController {
   constructor() {
     this.accountManager = new AccountManager();
 
-    // Пример начального заполнения
-    const a1 = this.accountManager.addAccount('Кошелёк');
-    const a2 = this.accountManager.addAccount('Банк');
+    const wallet = this.accountManager.addAccount('Кошелёк');
+    const bank = this.accountManager.addAccount('Банк');
 
-    a1.addTransaction(
+    wallet.addTransaction(
       new Transaction(
         500,
         TransactionTypeEnum.Income,
@@ -22,7 +21,7 @@ export class ApplicationController {
         'Зарплата'
       )
     );
-    a1.addTransaction(
+    wallet.addTransaction(
       new Transaction(
         120,
         TransactionTypeEnum.Expense,
@@ -30,7 +29,7 @@ export class ApplicationController {
         'Продукты'
       )
     );
-    a2.addTransaction(
+    bank.addTransaction(
       new Transaction(
         1000,
         TransactionTypeEnum.Income,
@@ -41,49 +40,72 @@ export class ApplicationController {
   }
 
   public async start() {
+    console.log(' ПРИЛОЖЕНИЕ ДЛЯ УЧЕТА ЛИЧНЫХ ФИНАНСОВ \n');
     await this.mainMenu();
   }
 
   private async mainMenu() {
     while (true) {
       console.clear();
+      console.log('ГЛАВНОЕ МЕНЮ\n');
+
       const accounts = this.accountManager.accounts;
 
-      const choices = [
-        ...accounts.map((acc) => ({
-          name: `${acc.name} — Баланс: ${acc.balance}`,
-          value: acc.id,
-        })),
-        { name: 'Создать новый счёт', value: 'create' },
-        { name: 'Выход', value: 'exit' },
-      ];
-
-      const { choice } = await inquirer.prompt({
-        type: 'list',
-        name: 'choice',
-        message: 'Выберите счёт или действие:',
-        choices,
-      });
-
-      if (choice === 'exit') break;
-
-      if (choice === 'create') {
-        await this.createAccount();
-        continue; // вернуться к главному меню с новым счётом
+      console.log('Доступные счета:');
+      if (accounts.length === 0) {
+        console.log('  (нет счетов)');
+      } else {
+        accounts.forEach((acc, index) => {
+          console.log(
+            `  ${index + 1}. ${acc.name} (Баланс: ${acc.balance} руб.)`
+          );
+        });
       }
 
-      const account = this.accountManager.accounts.find((a) => a.id === choice);
-      if (!account) {
-        console.log('Ошибка: выбранный счёт не найден. Нажмите Enter.');
-        await inquirer.prompt({ type: 'input', name: 'ok', message: '' });
+      if (accounts.length > 0) {
+        const summary = this.accountManager.getOverallSummary();
+        console.log(`\nОбщая статистика:`);
+        console.log(`  Доходы: ${summary.income} руб.`);
+        console.log(`  Расходы: ${summary.expenses} руб.`);
+        console.log(`  Общий баланс: ${summary.balance} руб.`);
+      }
+
+      console.log('\n Действия');
+      console.log('  C - Создать новый счёт');
+      console.log('  X - Выход из приложения');
+
+      const { command } = await inquirer.prompt({
+        type: 'input',
+        name: 'command',
+        message: '\nВведите номер счета или команду (C/X):',
+      });
+
+      const cmd = command.trim().toLowerCase();
+
+      if (cmd === 'x') {
+        console.log('\nДо свидания! Приложение закрыто.');
+        break;
+      }
+
+      if (cmd === 'c') {
+        await this.createAccount();
         continue;
       }
 
-      await this.watchAccount(account);
+      const index = parseInt(cmd) - 1;
+      if (!isNaN(index) && index >= 0 && index < accounts.length) {
+        await this.watchAccount(accounts[index]);
+      } else {
+        console.log('\nНеверная команда или номер счета.');
+        await this.pressEnterToContinue();
+      }
     }
   }
 
   private async createAccount() {
+    console.clear();
+    console.log('СОЗДАНИЕ НОВОГО СЧЕТА\n');
+
     const { name } = await inquirer.prompt({
       type: 'input',
       name: 'name',
@@ -92,49 +114,120 @@ export class ApplicationController {
         v && v.trim().length > 0 ? true : 'Введите непустое название',
     });
 
-    this.accountManager.addAccount(name.trim());
+    const accountName = name.trim();
+    const account = this.accountManager.addAccount(accountName);
+
+    console.log(`\nСчёт "${accountName}" успешно создан!`);
+    console.log(`ID счета: ${account.id}`);
+
+    const { addFirstTransaction } = await inquirer.prompt({
+      type: 'confirm',
+      name: 'addFirstTransaction',
+      message: 'Хотите добавить первую транзакцию к этому счету?',
+      default: false,
+    });
+
+    if (addFirstTransaction) {
+      await this.addTransaction(account);
+    }
+
+    await this.pressEnterToContinue(
+      'Нажмите Enter чтобы вернуться в главное меню...'
+    );
   }
 
   private async watchAccount(account: IAccount) {
     while (true) {
       console.clear();
-      console.log(`Счёт: ${account.name} (id: ${account.id})`);
-      console.log(`Баланс: ${account.balance}`);
+      console.log(`СЧЕТ: ${account.name}\n`);
+
+      console.log(`Баланс: ${account.balance} руб.\n`);
+
+      const summary = account.getSummary();
+      console.log('Статистика по счету:');
+      console.log(`  Доходы: ${summary.income} руб.`);
+      console.log(`  Расходы: ${summary.expenses} руб.`);
+      console.log(`  Чистый баланс: ${summary.balance} руб.\n`);
+
       console.log('Транзакции:');
-      const tx = account.getTransactions();
-      if (!tx.length) console.log('  Транзакций нет.');
-      tx.forEach((t) => {
-        console.log(
-          `  ${t.id} | ${t.date} | ${t.type} | ${t.amount} | ${t.description}`
-        );
-      });
+      const transactions = account.getTransactions();
+      if (transactions.length === 0) {
+        console.log('  Транзакций пока нет.');
+      } else {
+        transactions.forEach((t, index) => {
+          const sign = t.type === TransactionTypeEnum.Income ? '+' : '-';
+          console.log(
+            `  ${index + 1}. ${t.date} | ${sign}${t.amount} руб. | ${
+              t.description
+            }`
+          );
+        });
+      }
+
+      console.log('\nДействия');
+      console.log('  1. Добавить транзакцию');
+      console.log('  2. Удалить транзакцию');
+      console.log('  3. Экспортировать в CSV');
+      console.log('  4. Удалить этот счет');
+      console.log('  0. Вернуться в главное меню');
 
       const { action } = await inquirer.prompt({
-        type: 'list',
+        type: 'input',
         name: 'action',
-        message: 'Выберите действие:',
-        choices: [
-          { name: 'Добавить транзакцию', value: 'add' },
-          { name: 'Удалить транзакцию', value: 'remove' },
-          { name: 'Экспортировать в CSV', value: 'export' },
-          { name: 'Удалить счёт', value: 'delete' },
-          { name: 'Назад', value: 'back' },
-        ],
+        message: '\nВыберите действие (0-4):',
+        validate: (input: string) => {
+          const num = parseInt(input);
+          return !isNaN(num) && num >= 0 && num <= 4
+            ? true
+            : 'Введите число от 0 до 4';
+        },
       });
 
-      if (action === 'back') break;
-      if (action === 'add') await this.addTransaction(account);
-      if (action === 'remove') await this.removeTransaction(account);
-      if (action === 'export') await this.exportTransactionsToCSV(account);
-      if (action === 'delete') {
-        await this.removeAccount(account);
-        break;
+      const actionNum = parseInt(action);
+
+      switch (actionNum) {
+        case 0:
+          return;
+
+        case 1:
+          await this.addTransaction(account);
+          break;
+
+        case 2:
+          await this.removeTransaction(account);
+          break;
+
+        case 3:
+          await this.exportTransactionsToCSV(account);
+          break;
+
+        case 4:
+          const shouldDelete = await this.confirmDeleteAccount(account);
+          if (shouldDelete) {
+            console.log(`\nСчет "${account.name}" удален.`);
+            await this.pressEnterToContinue();
+            return;
+          }
+          break;
       }
     }
   }
 
   private async addTransaction(account: IAccount) {
+    console.clear();
+    console.log('ДОБАВЛЕНИЕ ТРАНЗАКЦИИ\n');
+    console.log(`Счет: ${account.name}\n`);
+
     const answers = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'type',
+        message: 'Тип транзакции:',
+        choices: [
+          { name: 'Доход', value: TransactionTypeEnum.Income },
+          { name: 'Расход', value: TransactionTypeEnum.Expense },
+        ],
+      },
       {
         type: 'input',
         name: 'amount',
@@ -147,18 +240,9 @@ export class ApplicationController {
         filter: (v: string) => Number(v),
       },
       {
-        type: 'list',
-        name: 'type',
-        message: 'Выберите тип транзакции:',
-        choices: [
-          { name: 'Доход', value: TransactionTypeEnum.Income },
-          { name: 'Расход', value: TransactionTypeEnum.Expense },
-        ],
-      },
-      {
         type: 'input',
         name: 'date',
-        message: 'Введите дату (YYYY-MM-DD), по умолчанию сегодня:',
+        message: 'Введите дату (YYYY-MM-DD):',
         default: () => new Date().toISOString().split('T')[0],
         validate: (v: string) =>
           /^\d{4}-\d{2}-\d{2}$/.test(v) ? true : 'Формат YYYY-MM-DD',
@@ -166,7 +250,7 @@ export class ApplicationController {
       {
         type: 'input',
         name: 'description',
-        message: 'Введите описание транзакции:',
+        message: 'Введите описание:',
         default: '',
       },
     ]);
@@ -177,60 +261,120 @@ export class ApplicationController {
       answers.date,
       answers.description
     );
+
     account.addTransaction(transaction);
+
+    const typeText =
+      answers.type === TransactionTypeEnum.Income ? 'доход' : 'расход';
+    console.log(
+      `\nТранзакция добавлена! (${typeText}: ${answers.amount} руб.)`
+    );
+    await this.pressEnterToContinue();
   }
 
   private async removeTransaction(account: IAccount) {
+    console.clear();
+    console.log('УДАЛЕНИЕ ТРАНЗАКЦИИ\n');
+
     const transactions = account.getTransactions();
-    if (!transactions.length) {
-      console.log('Транзакций нет. Нажмите Enter.');
-      await inquirer.prompt({ type: 'input', name: 'ok', message: '' });
+    if (transactions.length === 0) {
+      console.log('Транзакций нет для удаления.');
+      await this.pressEnterToContinue();
       return;
     }
 
-    const { transactionId } = await inquirer.prompt({
-      type: 'list',
-      name: 'transactionId',
-      message: 'Выберите транзакцию для удаления:',
-      choices: transactions.map((t) => ({
-        name: `${t.date} | ${t.type} | ${t.amount} | ${t.description}`,
-        value: t.id,
-      })),
+    console.log('Выберите транзакцию для удаления:\n');
+    transactions.forEach((t, index) => {
+      const sign = t.type === TransactionTypeEnum.Income ? '+' : '-';
+      console.log(
+        `  ${index + 1}. ${t.date} | ${sign}${t.amount} руб. | ${t.description}`
+      );
     });
+
+    const { transactionIndex } = await inquirer.prompt({
+      type: 'input',
+      name: 'transactionIndex',
+      message: '\nВведите номер транзакции для удаления:',
+      validate: (input: string) => {
+        const num = parseInt(input);
+        return !isNaN(num) && num >= 1 && num <= transactions.length
+          ? true
+          : `Введите число от 1 до ${transactions.length}`;
+      },
+    });
+
+    const index = parseInt(transactionIndex) - 1;
+    const transactionToDelete = transactions[index];
 
     const { confirm } = await inquirer.prompt({
       type: 'confirm',
       name: 'confirm',
-      message: 'Подтвердите удаление',
+      message: `Удалить транзакцию "${transactionToDelete.description}" на сумму ${transactionToDelete.amount} руб.?`,
+      default: false,
     });
-    if (confirm) account.removeTransactionById(transactionId);
+
+    if (confirm) {
+      account.removeTransactionById(transactionToDelete.id);
+      console.log('\nТранзакция удалена.');
+    } else {
+      console.log('\nУдаление отменено.');
+    }
+
+    await this.pressEnterToContinue();
   }
 
-  private async removeAccount(account: IAccount) {
+  private async confirmDeleteAccount(account: IAccount): Promise<boolean> {
+    console.clear();
+    console.log('УДАЛЕНИЕ СЧЕТА\n');
+
     const { confirm } = await inquirer.prompt({
       type: 'confirm',
       name: 'confirm',
-      message: `Вы уверены, что хотите удалить счёт "${account.name}"?`,
+      message: `Вы уверены, что хотите удалить счет "${account.name}"?\nЭто действие нельзя отменить!`,
+      default: false,
     });
 
-    if (confirm) this.accountManager.removeAccountById(account.id);
+    if (confirm) {
+      this.accountManager.removeAccountById(account.id);
+      return true;
+    }
+
+    return false;
   }
 
   private async exportTransactionsToCSV(account: IAccount) {
+    console.clear();
+    console.log('ЭКСПОРТ В CSV\n');
+
     const { filename } = await inquirer.prompt({
       type: 'input',
       name: 'filename',
-      message: 'Введите имя файла для экспорта (без расширения):',
+      message: 'Введите имя файла (без расширения .csv):',
+      default: `transactions_${account.name}_${
+        new Date().toISOString().split('T')[0]
+      }`,
       validate: (v: string) =>
         v && v.trim().length > 0 ? true : 'Введите имя файла',
     });
+
     try {
       account.exportTransactionsToCSV(filename.trim());
-      console.log('Экспорт завершён успешно! Нажмите Enter.');
-      await inquirer.prompt({ type: 'input', name: 'ok', message: '' });
+      console.log(`\nФайл "${filename}.csv" успешно создан!`);
+      console.log(`Место сохранения: ${process.cwd()}\\${filename}.csv`);
     } catch (err) {
-      console.log('Ошибка при экспорте:', (err as Error).message);
-      await inquirer.prompt({ type: 'input', name: 'ok', message: '' });
+      console.log('\nОшибка при экспорте:', (err as Error).message);
     }
+
+    await this.pressEnterToContinue();
+  }
+
+  private async pressEnterToContinue(
+    message: string = 'Нажмите Enter чтобы продолжить...'
+  ) {
+    await inquirer.prompt({
+      type: 'input',
+      name: 'continue',
+      message,
+    });
   }
 }

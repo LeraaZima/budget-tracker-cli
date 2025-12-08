@@ -10,7 +10,7 @@ export class Account implements IAccount {
   private transactions: ITransaction[] = [];
 
   constructor(name: string) {
-    this.id = uuidv4(); // полностью уникальный UUID
+    this.id = uuidv4(); 
     this.name = name;
   }
 
