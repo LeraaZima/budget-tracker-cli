@@ -1,10 +1,19 @@
-namespace BudgetTracker {
-  export interface IAccount {
-    id: number;
-    name: string;
+import { ITransaction } from './ITransaction';
 
-    addTransaction(transaction: ITransaction): void;
-    getTransactions(): ITransaction[];
-    removeTransactionById(transactionId: number): boolean;
-  }
+export interface IAccount {
+  id: string;
+  name: string;
+
+  getTransactions(): ITransaction[];
+  addTransaction(t: ITransaction): void;
+  removeTransactionById(id: string): void;
+
+  getSummary(): {
+    income: number;
+    expenses: number;
+    balance: number;
+  };
+  exportTransactionsToCSV(filename: string): void;
+
+  readonly balance: number;
 }

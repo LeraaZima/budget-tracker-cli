@@ -1,9 +1,12 @@
-namespace BudgetTracker {
-  export interface ITransaction {
-    id: number;
-    amount: number;
-    type: TransactionType;
-    date: string;
-    description: string;
-  }
+export enum TransactionTypeEnum {
+  Income = 'Доход',
+  Expense = 'Расход',
+}
+
+export interface ITransaction {
+  id: string;
+  amount: number;
+  type: TransactionTypeEnum;
+  date: string;
+  description: string;
 }

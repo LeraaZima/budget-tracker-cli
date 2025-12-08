@@ -1,59 +1,61 @@
-namespace BudgetTracker {
-  export class Account implements IAccount {
-    public id: number;
-    public name: string;
-    private transactions: Transaction[] = [];
+import { IAccount } from '../interfaces/IAccount';
+import { ITransaction, TransactionTypeEnum } from '../interfaces/ITransaction';
+import { escapeCsvValue } from '../utils/escapeCsvValue';
+import { writeFileSync } from 'fs';
+import { v4 as uuidv4 } from 'uuid';
 
-    constructor(id: number, name: string) {
-      this.id = id;
-      this.name = name;
-    }
+export class Account implements IAccount {
+  id: string;
+  name: string;
+  private transactions: ITransaction[] = [];
 
-    get income(): number {
-      return this.transactions
-        .filter((t) => t.type === 'income')
-        .reduce((s, t) => s + t.amount, 0);
-    }
+  constructor(name: string) {
+    this.id = uuidv4(); // полностью уникальный UUID
+    this.name = name;
+  }
 
-    get expense(): number {
-      return this.transactions
-        .filter((t) => t.type === 'expense')
-        .reduce((s, t) => s + t.amount, 0);
-    }
+  get balance(): number {
+    return this.transactions.reduce(
+      (sum, t) =>
+        sum + (t.type === TransactionTypeEnum.Income ? t.amount : -t.amount),
+      0
+    );
+  }
 
-    get balance(): number {
-      return this.income - this.expense;
-    }
+  addTransaction(transaction: ITransaction) {
+    this.transactions.push(transaction);
+  }
 
-    addTransaction(transaction: Transaction): void {
-      this.transactions.push(transaction);
-    }
+  removeTransactionById(id: string) {
+    this.transactions = this.transactions.filter((t) => t.id !== id);
+  }
 
-    getTransactions(): Transaction[] {
-      return [...this.transactions];
-    }
+  getTransactions(): ITransaction[] {
+    return this.transactions;
+  }
 
-    removeTransactionById(id: number): boolean {
-      const index = this.transactions.findIndex((t) => t.id === id);
-      if (index === -1) return false;
-      this.transactions.splice(index, 1);
-      return true;
-    }
+  getSummary() {
+    const income = this.transactions
+      .filter((t) => t.type === TransactionTypeEnum.Income)
+      .reduce((sum, t) => sum + t.amount, 0);
+    const expenses = this.transactions
+      .filter((t) => t.type === TransactionTypeEnum.Expense)
+      .reduce((sum, t) => sum + t.amount, 0);
 
-    getSummary(): ISummary {
-      return {
-        income: this.income,
-        expense: this.expense,
-        balance: this.balance,
-      };
-    }
+    return { income, expenses, balance: income - expenses };
+  }
 
-    getSummaryString(): string {
-      return `${this.name}: баланс ${this.balance} ₽ (${this.transactions.length} транзакций)`;
-    }
+  exportTransactionsToCSV(filename: string) {
+    const header = ['ID', 'Дата', 'Тип', 'Сумма', 'Описание'];
+    const rows = this.transactions.map((t) => [
+      t.id,
+      t.date,
+      t.type,
+      t.amount.toString(),
+      escapeCsvValue(t.description),
+    ]);
 
-    toString(): string {
-      return `Счёт "${this.name}" (id: ${this.id}) — баланс: ${this.balance} ₽`;
-    }
+    const csv = [header, ...rows].map((r) => r.join(',')).join('\n');
+    writeFileSync(`${filename}.csv`, csv, { encoding: 'utf8' });
   }
 }

@@ -1,16 +1,11 @@
 {
   "compilerOptions": {
-    "target": "ES5",
-    "module": "none",
-    "outFile": "./dist/budget-tracker.js",
-
-    "lib": ["ES2017", "DOM"],
-
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "node",
     "strict": true,
-    "removeComments": false,
-    "sourceMap": false,
-    "noImplicitAny": false,
-    "noEmitOnError": true
-  },
-  "include": ["src/**/*"]
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": "./src"
+  }
 }

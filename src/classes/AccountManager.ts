@@ -1,43 +1,31 @@
-namespace BudgetTracker {
-  export class AccountManager implements IAccountManager {
-    private accounts: Account[] = [];
+import { IAccount } from '../interfaces/IAccount';
+import { Account } from './Account';
 
-    addAccount(account: Account): void {
-      this.accounts.push(account);
-    }
+export class AccountManager {
+  accounts: IAccount[] = [];
 
-    removeAccountById(id: number): boolean {
-      const index = this.accounts.findIndex((a) => a.id === id);
-      if (index === -1) return false;
-      this.accounts.splice(index, 1);
-      return true;
-    }
+  addAccount(name: string): IAccount {
+    const acc = new Account(name);
+    this.accounts.push(acc);
+    return acc;
+  }
 
-    getAccounts(): Account[] {
-      return [...this.accounts];
-    }
+  removeAccountById(id: string) {
+    this.accounts = this.accounts.filter((acc) => acc.id !== id);
+  }
 
-    getAccountById(id: number): Account | undefined {
-      return this.accounts.find((a) => a.id === id);
-    }
+  getAllAccounts(): IAccount[] {
+    return this.accounts;
+  }
 
-    getSummary(): ISummary {
-      const income = this.accounts.reduce((s, a) => s + a.income, 0);
-      const expense = this.accounts.reduce((s, a) => s + a.expense, 0);
-      return {
-        income,
-        expense,
-        balance: income - expense,
-      };
-    }
-
-    getSummaryString(): string {
-      const summary = this.getSummary();
-      return `Баланс всех счетов: ${summary.balance} ₽`;
-    }
-
-    toString(): string {
-      return this.accounts.map((a) => a.getSummaryString()).join('\n');
-    }
+  getOverallSummary() {
+    let income = 0;
+    let expenses = 0;
+    this.accounts.forEach((acc) => {
+      const summary = acc.getSummary();
+      income += summary.income;
+      expenses += summary.expenses;
+    });
+    return { income, expenses, balance: income - expenses };
   }
 }
